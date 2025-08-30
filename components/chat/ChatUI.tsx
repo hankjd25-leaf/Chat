@@ -150,7 +150,7 @@ export default function ChatUI() {
           <div className="text-center text-gray-500 mt-20">
             <Bot className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p>안녕하세요! 무엇이든 물어보세요.</p>
-            <p className="text-sm mt-2">예: "Next.js란 무엇인가요?"</p>
+            <p className="text-sm mt-2">예: &quot;Next.js란 무엇인가요?&quot;</p>
           </div>
         )}
 

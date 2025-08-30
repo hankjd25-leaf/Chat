@@ -43,7 +43,7 @@ export default function RoleChatUI() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [input, selectedRole]);
+  }, [input, selectedRole, handleSend]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;

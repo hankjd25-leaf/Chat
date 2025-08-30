@@ -30,9 +30,6 @@ export async function POST(req: NextRequest) {
     // OpenAI 클라이언트 생성
     const openai = createOpenAIClient();
 
-    // 선택된 스키마
-    const selectedSchema = SCHEMA_MAP[schemaType];
-
     // 메시지 구성
     const messages = [
       { role: 'system' as const, content: SYSTEM_PROMPTS.jsonUI },

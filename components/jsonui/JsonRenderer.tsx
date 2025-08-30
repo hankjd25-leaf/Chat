@@ -5,7 +5,7 @@ import { CheckCircle, Circle, Star, TrendingUp, TrendingDown } from 'lucide-reac
 import { SchemaType } from '@/lib/schemas';
 
 interface JsonRendererProps {
-  data: any;
+  data: Record<string, unknown>;
   schemaType: SchemaType;
 }
 
@@ -48,7 +48,7 @@ export default function JsonRenderer({ data, schemaType }: JsonRendererProps) {
 }
 
 // 카드 렌더러
-function CardsRenderer({ data }: { data: any }) {
+function CardsRenderer({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="space-y-4">
       <div className="text-center">
@@ -59,7 +59,7 @@ function CardsRenderer({ data }: { data: any }) {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {data.cards?.map((card: any, index: number) => (
+        {(data.cards as Array<Record<string, unknown>>)?.map((card: Record<string, unknown>, index: number) => (
           <div
             key={index}
             className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
@@ -90,7 +90,7 @@ function CardsRenderer({ data }: { data: any }) {
 }
 
 // 대시보드 렌더러
-function DashboardRenderer({ data }: { data: any }) {
+function DashboardRenderer({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="space-y-6">
       <div>
@@ -102,7 +102,7 @@ function DashboardRenderer({ data }: { data: any }) {
       
       {/* 메트릭스 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {data.metrics?.map((metric: any, index: number) => (
+        {(data.metrics as Array<Record<string, unknown>>)?.map((metric: Record<string, unknown>, index: number) => (
           <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -135,7 +135,7 @@ function DashboardRenderer({ data }: { data: any }) {
             {data.chart.type === 'bar' ? '막대 차트' : '차트'} 데이터
           </h3>
           <div className="space-y-2">
-            {data.chart.data?.map((item: any, index: number) => (
+            {(data.chart.data as Array<Record<string, unknown>>)?.map((item: Record<string, unknown>, index: number) => (
               <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                 <span className="font-medium">{item.label}</span>
                 <span className="text-blue-600 font-semibold">{item.value}</span>
@@ -149,11 +149,11 @@ function DashboardRenderer({ data }: { data: any }) {
 }
 
 // 할 일 목록 렌더러
-function TodoListRenderer({ data }: { data: any }) {
+function TodoListRenderer({ data }: { data: Record<string, unknown> }) {
   const [todos, setTodos] = useState(data.todos || []);
 
   const toggleTodo = (id: string) => {
-    setTodos(todos.map((todo: any) => 
+    setTodos((todos as Array<Record<string, unknown>>).map((todo: Record<string, unknown>) => 
       todo.id === id ? { ...todo, completed: !todo.completed } : todo
     ));
   };
@@ -168,7 +168,7 @@ function TodoListRenderer({ data }: { data: any }) {
       </div>
       
       <div className="bg-white border border-gray-200 rounded-lg">
-        {todos.map((todo: any, index: number) => (
+        {(todos as Array<Record<string, unknown>>).map((todo: Record<string, unknown>, index: number) => (
           <div
             key={todo.id || index}
             className={`flex items-center gap-3 p-4 border-b border-gray-100 last:border-b-0 ${
@@ -213,7 +213,7 @@ function TodoListRenderer({ data }: { data: any }) {
 }
 
 // 제품 카탈로그 렌더러
-function ProductCatalogRenderer({ data }: { data: any }) {
+function ProductCatalogRenderer({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="space-y-4">
       <div>
@@ -221,7 +221,7 @@ function ProductCatalogRenderer({ data }: { data: any }) {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {data.products?.map((product: any, index: number) => (
+        {(data.products as Array<Record<string, unknown>>)?.map((product: Record<string, unknown>, index: number) => (
           <div key={product.id || index} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
             {product.image && (
               <div className="aspect-square bg-gray-100 flex items-center justify-center">

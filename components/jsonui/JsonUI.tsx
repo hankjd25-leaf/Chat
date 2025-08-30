@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Code, Send, RefreshCw } from 'lucide-react';
 import JsonRenderer from './JsonRenderer';
-import { SchemaType, SCHEMA_MAP } from '@/lib/schemas';
+import { SchemaType } from '@/lib/schemas';
 import LoadingDots from '@/components/common/LoadingDots';
 
 const SCHEMA_OPTIONS = [
@@ -17,7 +17,7 @@ export default function JsonUI() {
   const [prompt, setPrompt] = useState('');
   const [selectedSchema, setSelectedSchema] = useState<SchemaType>('cards');
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,7 +56,7 @@ export default function JsonUI() {
 
   const handleRegenerate = () => {
     if (prompt.trim()) {
-      handleSubmit(new Event('submit') as any);
+      handleSubmit(new Event('submit') as React.FormEvent);
     }
   };
 
