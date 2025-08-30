@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, User, Info } from 'lucide-react';
 import LoadingDots from '@/components/common/LoadingDots';
 import RoleSelector from './RoleSelector';
@@ -32,20 +32,7 @@ export default function RoleChatUI() {
     scrollToBottom();
   }, [messages]);
 
-  // 키보드 단축키 처리
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleSend();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [input, selectedRole, handleSend]);
-
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
@@ -133,7 +120,20 @@ export default function RoleChatUI() {
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
       setIsLoading(false);
     }
-  };
+  }, [input, selectedRole, isLoading]);
+
+  // 키보드 단축키 처리
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSend();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleSend]);
 
   const selectedRoleData = ROLE_PRESETS[selectedRole as keyof typeof ROLE_PRESETS];
 

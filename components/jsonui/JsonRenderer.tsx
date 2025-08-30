@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { CheckCircle, Circle, Star, TrendingUp, TrendingDown } from 'lucide-react';
 import { SchemaType } from '@/lib/schemas';
 
@@ -223,18 +224,20 @@ function ProductCatalogRenderer({ data }: { data: Record<string, unknown> }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {(data.products as Array<Record<string, unknown>>)?.map((product: Record<string, unknown>, index: number) => (
           <div key={product.id || index} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-            {product.image && (
-              <div className="aspect-square bg-gray-100 flex items-center justify-center">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
+                         {product.image && (
+               <div className="aspect-square bg-gray-100 flex items-center justify-center">
+                 <Image
+                   src={product.image as string}
+                   alt={product.name as string}
+                   width={300}
+                   height={300}
+                   className="w-full h-full object-cover"
+                   onError={() => {
+                     // 에러 처리
+                   }}
+                 />
+               </div>
+             )}
             
             <div className="p-4">
               <div className="flex items-start justify-between mb-2">

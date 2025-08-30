@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import LoadingDots from '@/components/common/LoadingDots';
 
@@ -28,20 +28,7 @@ export default function ChatUI() {
     scrollToBottom();
   }, [messages]);
 
-  // 키보드 단축키 처리
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleSend();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [input]);
-
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
@@ -129,7 +116,20 @@ export default function ChatUI() {
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
       setIsLoading(false);
     }
-  };
+  }, [input, isLoading, messages]);
+
+  // 키보드 단축키 처리
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSend();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleSend]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
