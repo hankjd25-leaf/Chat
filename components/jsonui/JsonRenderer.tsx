@@ -54,9 +54,9 @@ function CardsRenderer({ data }: { data: Record<string, unknown> }) {
     <div className="space-y-4">
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-900">{String(data.title || '')}</h2>
-        {data.subtitle && (
-          <p className="text-gray-600 mt-2">{String(data.subtitle)}</p>
-        )}
+                 {data.subtitle && String(data.subtitle) && (
+           <p className="text-gray-600 mt-2">{String(data.subtitle)}</p>
+         )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -67,7 +67,7 @@ function CardsRenderer({ data }: { data: Record<string, unknown> }) {
           >
                          <div className="flex items-center justify-between mb-2">
                <h3 className="font-semibold text-gray-900">{String(card.label || '')}</h3>
-               {card.color && (
+               {card.color && String(card.color) && (
                  <div 
                    className="w-4 h-4 rounded-full"
                    style={{ backgroundColor: String(card.color) }}
@@ -75,7 +75,7 @@ function CardsRenderer({ data }: { data: Record<string, unknown> }) {
                )}
              </div>
              <p className="text-gray-600">{String(card.value || '')}</p>
-                         {card.href && (
+                         {card.href && String(card.href) && (
                <a
                  href={String(card.href)}
                  className="text-blue-600 hover:text-blue-800 text-sm mt-2 inline-block"
@@ -96,9 +96,9 @@ function DashboardRenderer({ data }: { data: Record<string, unknown> }) {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">{String(data.title || '')}</h2>
-        {data.summary && (
-          <p className="text-gray-600 mt-2">{String(data.summary)}</p>
-        )}
+                 {data.summary && String(data.summary) && (
+           <p className="text-gray-600 mt-2">{String(data.summary)}</p>
+         )}
       </div>
       
       {/* 메트릭스 */}
@@ -110,20 +110,20 @@ function DashboardRenderer({ data }: { data: Record<string, unknown> }) {
                  <p className="text-sm text-gray-600">{String(metric.name || '')}</p>
                  <p className="text-2xl font-bold text-gray-900">{String(metric.value || '')}</p>
                </div>
-              {metric.trend && (
-                <div className="flex items-center gap-1">
-                  {metric.trend === 'up' ? (
-                    <TrendingUp className="w-5 h-5 text-green-600" />
-                  ) : (
-                    <TrendingDown className="w-5 h-5 text-red-600" />
-                  )}
-                                     {metric.change && (
-                     <span className={`text-sm ${metric.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                             {metric.trend && String(metric.trend) && (
+                 <div className="flex items-center gap-1">
+                   {String(metric.trend) === 'up' ? (
+                     <TrendingUp className="w-5 h-5 text-green-600" />
+                   ) : (
+                     <TrendingDown className="w-5 h-5 text-red-600" />
+                   )}
+                   {metric.change && String(metric.change) && (
+                     <span className={`text-sm ${String(metric.trend) === 'up' ? 'text-green-600' : 'text-red-600'}`}>
                        {String(metric.change)}
                      </span>
                    )}
-                </div>
-              )}
+                 </div>
+               )}
             </div>
           </div>
         ))}
@@ -136,7 +136,7 @@ function DashboardRenderer({ data }: { data: Record<string, unknown> }) {
              {(data.chart as Record<string, unknown>)?.type === 'bar' ? '막대 차트' : '차트'} 데이터
            </h3>
           <div className="space-y-2">
-            {(data.chart.data as Array<Record<string, unknown>>)?.map((item: Record<string, unknown>, index: number) => (
+                         {((data.chart as Record<string, unknown>)?.data as Array<Record<string, unknown>>)?.map((item: Record<string, unknown>, index: number) => (
                              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                  <span className="font-medium">{String(item.label || '')}</span>
                  <span className="text-blue-600 font-semibold">{String(item.value || '')}</span>
@@ -163,21 +163,21 @@ function TodoListRenderer({ data }: { data: Record<string, unknown> }) {
     <div className="space-y-4">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">{String(data.title || '')}</h2>
-        {data.description && (
-          <p className="text-gray-600 mt-2">{String(data.description)}</p>
-        )}
+                 {data.description && String(data.description) && (
+           <p className="text-gray-600 mt-2">{String(data.description)}</p>
+         )}
       </div>
       
       <div className="bg-white border border-gray-200 rounded-lg">
         {(todos as Array<Record<string, unknown>>).map((todo: Record<string, unknown>, index: number) => (
           <div
-            key={todo.id || index}
+                         key={String(todo.id || index)}
             className={`flex items-center gap-3 p-4 border-b border-gray-100 last:border-b-0 ${
               todo.completed ? 'bg-gray-50' : ''
             }`}
           >
             <button
-              onClick={() => toggleTodo(todo.id)}
+                             onClick={() => toggleTodo(String(todo.id || ''))}
               className="flex-shrink-0"
             >
               {todo.completed ? (
@@ -192,16 +192,16 @@ function TodoListRenderer({ data }: { data: Record<string, unknown> }) {
                  {String(todo.text || '')}
                </p>
               <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                {todo.priority && (
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    todo.priority === 'high' ? 'bg-red-100 text-red-800' :
-                    todo.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {todo.priority}
-                  </span>
-                )}
-                                 {todo.dueDate && (
+                                 {todo.priority && String(todo.priority) && (
+                   <span className={`px-2 py-1 rounded text-xs ${
+                     String(todo.priority) === 'high' ? 'bg-red-100 text-red-800' :
+                     String(todo.priority) === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                     'bg-green-100 text-green-800'
+                   }`}>
+                     {String(todo.priority)}
+                   </span>
+                 )}
+                                 {todo.dueDate && String(todo.dueDate) && (
                    <span>마감일: {String(todo.dueDate)}</span>
                  )}
               </div>
@@ -223,8 +223,8 @@ function ProductCatalogRenderer({ data }: { data: Record<string, unknown> }) {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {(data.products as Array<Record<string, unknown>>)?.map((product: Record<string, unknown>, index: number) => (
-          <div key={product.id || index} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                         {product.image && (
+                     <div key={String(product.id || index)} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                         {product.image && String(product.image) && (
                <div className="aspect-square bg-gray-100 flex items-center justify-center">
                  <Image
                    src={product.image as string}
@@ -245,18 +245,18 @@ function ProductCatalogRenderer({ data }: { data: Record<string, unknown> }) {
                  <span className="text-lg font-bold text-blue-600">{String(product.price || '')}</span>
                </div>
               
-                             {product.description && (
+                             {product.description && String(product.description) && (
                  <p className="text-gray-600 text-sm mb-3">{String(product.description)}</p>
                )}
               
               <div className="flex items-center justify-between">
-                                 {product.category && (
+                                 {product.category && String(product.category) && (
                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
                      {String(product.category)}
                    </span>
                  )}
                 
-                                 {product.rating && (
+                                 {product.rating && String(product.rating) && (
                    <div className="flex items-center gap-1">
                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
                      <span className="text-sm text-gray-600">{String(product.rating)}</span>

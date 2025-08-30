@@ -56,7 +56,7 @@ export default function JsonUI() {
 
   const handleRegenerate = () => {
     if (prompt.trim()) {
-      handleSubmit(new Event('submit') as React.FormEvent);
+             handleSubmit(new Event('submit') as unknown as React.FormEvent);
     }
   };
 
