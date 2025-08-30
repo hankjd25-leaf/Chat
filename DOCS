@@ -1,0 +1,441 @@
+# Next.js + OpenAI 웹앱 기능 상세 명세서
+
+> 목표: Next.js를 기반으로 “카드형 랜딩 → 4가지 기능(기본 챗봇 → 역할 기반 AI → 블로그 글 AI → JSON-UI AI)”을 순차 확장 가능한 구조로 설계하고, 안전/성능/운영까지 포함한 실전 수준 명세를 제공.
+
+---
+
+## 0) 전반 아키텍처
+
+* **프레임워크**: Next.js (App Router, Server Actions/Route Handlers)
+* **런타임**: Node.js 18+ (Streams 지원)
+* **UI**: Tailwind CSS + shadcn/ui (카드/폼/모달/토스트)
+* **상태관리**: React Server Components + 클라이언트 훅(Zustand 또는 Context)
+* **API 통신**: Next.js Route Handlers (`app/api/*/route.ts`)
+* **OpenAI 연동**: 공식 JS/TS SDK (`openai`), **Responses API** 중심
+  (스트리밍, 구조화 출력(Structured Outputs) 지원) ([OpenAI 플랫폼][1])
+* **보안**: Edge 에서 비공개 키 미노출(서버 전용), Rate Limit, 안전가드
+* **로그/분석**: Sentry/Logtail + 자체 request log
+* **배포**: Vercel(권장) 또는 Node 서버
+* **국제화(i18n)**: ko 기본, en 추가 (next-intl)
+
+---
+
+## 1) 디렉터리 구조(초안)
+
+```
+app/
+  layout.tsx
+  page.tsx                   // 랜딩(카드형)
+  (features)/
+    chat-basic/page.tsx
+    role-assistant/page.tsx
+    blog-writer/page.tsx
+    json-ui/page.tsx
+  api/
+    chat/route.ts            // 기능1 API
+    role/route.ts            // 기능2 API
+    blog/route.ts            // 기능3 API
+    json-ui/route.ts         // 기능4 API (JSON Schema/Structured)
+components/
+  cards/FeatureCard.tsx
+  chat/ChatUI.tsx
+  editor/RichText.tsx
+  jsonui/Renderer.tsx        // 기능4: JSON → UI 렌더
+  common/LoadingDots.tsx
+  common/ErrorBoundary.tsx
+lib/
+  openai.ts                  // OpenAI 클라이언트 팩토리
+  prompts.ts                 // 시스템/역할/템플릿 모음
+  schemas.ts                 // Zod/JSON Schema 정의
+  rateLimit.ts
+  logger.ts
+  safety.ts                  // 콘텐츠 필터링/세이프가드
+styles/
+  globals.css
+```
+
+---
+
+## 2) 환경 변수
+
+* `OPENAI_API_KEY` (필수, 서버 전용)
+* `NEXT_PUBLIC_APP_NAME` (선택, 클라이언트 노출)
+* `NODE_ENV`, `SENTRY_DSN` 등
+
+> **주의:** OpenAI 키는 서버에서만 사용. 클라이언트에 직접 노출 금지.
+
+---
+
+## 3) 랜딩 페이지 (카드형 UI)
+
+### 요구사항
+
+* 2×2 **Feature Card** 그리드
+* 각 카드: 아이콘/제목/한줄설명/“시작하기” 버튼
+* 최근 업데이트 배지, 실험적 기능 뱃지
+
+### 라우팅
+
+* `/` → 카드 4개
+* 카드 클릭 → `/chat-basic`, `/role-assistant`, `/blog-writer`, `/json-ui`
+
+---
+
+## 4) 공통 UX/기능
+
+* **스트리밍 출력**: 질문 즉시 타이핑 효과로 표시 (Server → Client Stream) ([OpenAI 플랫폼][2], [GitHub][3])
+* **히스토리**: 세션 기반 in-memory(초기) → IndexedDB/LocalStorage(개인용) 옵션
+* **입력 가이드**: 플레이스홀더/샘플 프롬프트
+* **오류 처리**: 네트워크/레이트리밋/안전거부(refusal) 명시 ([OpenAI 플랫폼][4])
+* **토스트 알림**: 전송 시작/완료/에러
+* **키보드 단축키**: ⌘/Ctrl+Enter 전송
+
+---
+
+## 5) OpenAI 연동 원칙 (Responses API)
+
+* **엔드포인트**: Responses API (기본 대화/도구호출/스트리밍) ([OpenAI 플랫폼][4])
+* **구조화 출력**: JSON Mode & **Structured Outputs**(JSON Schema 강제 일치) 우선 사용 ([OpenAI 플랫폼][5], [OpenAI][6])
+* **스트리밍**: Server Route에서 **ReadableStream** → `TextDecoderStream`으로 브라우저 전송 ([OpenAI 플랫폼][2])
+* **공식 SDK**: `openai` NPM 사용(타입 지원) ([GitHub][7])
+
+---
+
+## 6) 기능별 상세
+
+### 6.1 기능 1 — 기본 챗봇 (`/chat-basic`)
+
+**사용자 스토리**
+
+* 사용자는 임의 질문을 입력한다.
+* 모델은 일반 지식 답변을 스트리밍으로 반환한다.
+
+**요구사항**
+
+* 좌: 메시지 리스트 / 우: 입력 박스
+* 시스템 프롬프트(가벼운 톤/한국어 우선)
+* 컨텍스트 길이 제한 및 자동 요약(선택)
+* **API**: `POST /api/chat`
+
+  * 입력: `{ messages: Array<{role:'user'|'assistant'|'system', content:string}> }`
+  * 출력: **EventStream**(text chunk)
+
+**기본 프롬프트 예시**
+
+```text
+[system] 당신은 유용하고 간결한 한국어 도우미입니다. 숫자/날짜는 정확히.
+```
+
+**스트리밍 서버 예(요약형 TypeScript, Responses API)**
+
+```ts
+// app/api/chat/route.ts
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+export async function POST(req: Request) {
+  const { messages } = await req.json();
+  const response = await openai.responses.create({
+    model: "gpt-4o-mini", // 예시 모델명
+    input: messages.map(m => ({ role: m.role, content: m.content })),
+    stream: true,
+  }); // Responses API, stream 사용
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      for await (const chunk of response) {
+        controller.enqueue(new TextEncoder().encode(chunk.toString()));
+      }
+      controller.close();
+    }
+  });
+
+  return new Response(stream, {
+    headers: { "Content-Type": "text/event-stream" }
+  });
+}
+```
+
+(스트리밍 가이드 및 SDK 활용은 공식 문서 권장 패턴을 따른다.) ([OpenAI 플랫폼][2], [GitHub][7])
+
+---
+
+### 6.2 기능 2 — **특정 역할** AI (`/role-assistant`)
+
+**사례**
+
+* “여행 플래너”, “코딩 리뷰어”, “재무분석가” 등 **선택형 역할** 제공 + 사용자 커스텀
+* 역할별 시스템 프롬프트 + 금지/제한 규칙
+
+**요구사항**
+
+* 역할 선택 드롭다운 + 가이드 템플릿
+* **API**: `POST /api/role`
+
+  * 입력: `{ roleKey: string; userInput: string; }`
+  * 출력: 스트리밍 텍스트
+
+**프롬프트 템플릿 예시**
+
+```text
+[system] 너는 {roleName}다.
+목표: {goal}
+어조: {tone}
+금지: {banned}
+출력요구: {formatHints}
+```
+
+**역할 프리셋 예**
+
+* 여행 플래너: 일정/예산/동선 고려, 표로 요약
+* 재무분석가: KPI/밸류에이션 포맷, 경고문(투자자문 아님)
+* 코딩 리뷰어: 린트/복잡도/대안 제시, 코드블록 제한
+
+---
+
+### 6.3 기능 3 — **블로그 글 써주는 AI** (`/blog-writer`)
+
+**사용자 스토리**
+
+* 주제/톤/독자/길이/SEO 키워드 입력 → 초안 생성
+* 목차(요약) → 본문 → 메타데이터(title/description/tags)
+
+**요구사항**
+
+* 단계형 UI(폼 → 미리보기 → 복사/다운로드)
+* 출력: Markdown (이미지 프롬프트 캡션 포함)
+* **API**: `POST /api/blog`
+
+  * 입력:
+
+    ```json
+    {
+      "topic": "Next.js와 OpenAI",
+      "audience": "초급 개발자",
+      "tone": "친근하고 실용적",
+      "length": "1500-2000자",
+      "keywords": ["Next.js", "Responses API", "스트리밍"]
+    }
+    ```
+  * 출력: 스트리밍 Markdown + `{title, description, tags}` 구조화 부가 메타
+
+**프롬프트 핵심**
+
+* **제약**: 표절 방지/출처 요구(있다면)/사실성 주의
+* **형식**: `# 제목` → `요약` → `섹션` → `결론` → `FAQ` → `메타`
+
+---
+
+### 6.4 기능 4 — **JSON으로 받고 UI로 그려주는 AI** (`/json-ui`)
+
+**개념**
+
+* 모델이 **정해진 JSON Schema**를 정확히 따르는 출력(Structured Outputs) → 클라이언트가 즉시 **UI로 렌더**
+  (예: 카드 리스트/그래프 스펙/폼 정의 등) ([OpenAI 플랫폼][5], [OpenAI][6])
+
+**요구사항**
+
+* 좌: 프롬프트/옵션, 우: “미리보기 렌더”
+* 실패 시: 스키마 검증 에러 UI
+
+**JSON Schema (예시: 카드형 답변)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string" },
+    "subtitle": { "type": "string" },
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "value": { "type": "string" },
+          "href": { "type": "string" }
+        },
+        "required": ["label", "value"]
+      }
+    }
+  },
+  "required": ["title", "cards"]
+}
+```
+
+**API**: `POST /api/json-ui`
+
+* 입력: `{ prompt: string }`
+* 서버에서 Responses API **structured\_outputs** 사용
+* 출력: `application/json` (스키마에 100% 일치).
+  (JSON Mode와 달리 **스키마 강제 일치** 보장) ([OpenAI 플랫폼][5])
+
+**서버 예(요약형, 구조화 출력)**
+
+```ts
+// app/api/json-ui/route.ts
+import OpenAI from "openai";
+import { jsonUISchema } from "@/lib/schemas";
+const openai = new OpenAI();
+
+export async function POST(req: Request) {
+  const { prompt } = await req.json();
+
+  const response = await openai.responses.create({
+    model: "gpt-4o-mini",
+    input: [
+      { role: "system", content: "JSON Schema에 100% 맞춰 응답하세요." },
+      { role: "user", content: prompt }
+    ],
+    // Structured Outputs
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "JsonUICards",
+        schema: jsonUISchema
+      }
+    }
+  });
+
+  // non-stream for schema-constrained
+  const data = response.output[0].content[0].text; // SDK 반환 형식은 공식 문서 참조
+  return new Response(data, { headers: { "Content-Type": "application/json" }});
+}
+```
+
+> Structured Outputs/JSON Mode/Responses API의 사용 방법 및 차이는 공식 문서를 기준으로 구현한다. ([OpenAI 플랫폼][4])
+
+**클라이언트 렌더러**
+
+* `Renderer.tsx`에서 스키마 기반 안전 렌더(필수키 검사, XSS 방지)
+* 카드/표/알림/차트(옵션) 등 컴포넌트 매핑
+
+---
+
+## 7) 프롬프트 & 안전 가이드
+
+* **중앙관리**: `lib/prompts.ts`에서 역할/출력 형식/톤/금지어/컨텍스트 길이 관리
+* **콘텐츠 안전**:
+
+  * 사용 목적 명시(의료/법률/금융 비권고 디스클레이머)
+  * 민감/개인정보 입력 경고 및 마스킹
+  * 모델 **Refusal** 메시지 수용(사유 표시) ([OpenAI 플랫폼][4])
+
+---
+
+## 8) 레이트 리미트 & 비용 관리
+
+* **IP/세션 레이트리밋**: 예) 60 req/분
+* **토큰 상한**: 길이/스텝 제한, 롤백/캐시
+* **로그 샘플링**: 프롬프트/응답 일부 마스킹 저장
+
+---
+
+## 9) 테스트 계획
+
+* **유닛**: 프롬프트 빌더/스키마 검증(Zod), 렌더러
+* **통합**: API Route → 스트림 파서 → UI
+* **E2E**: Playwright로 시나리오(입력→스트리밍→완료) 검사
+* **계약 테스트**: 기능4 JSON Schema 호환성(파손 방지)
+
+---
+
+## 10) 성능 최적화
+
+* **스트리밍 우선**(첫 바이트 지연 감소)
+* **RSC**로 서버 연산 이동, CSR 최소화
+* **Debounce** 입력, 중복요청 취소(AbortController)
+* **Edge 배포**(가능 시) + 캐싱(정적 자원)
+
+---
+
+## 11) 접근성 & i18n
+
+* 폼 레이블/ARIA, 키보드 포커스 트랩
+* 한국어 기본, `en` 리소스 파일로 확장
+* 날짜/숫자 로케일 포맷
+
+---
+
+## 12) 로깅/모니터링
+
+* 요청 ID/모델/토큰 사용량/지연시간
+* 에러 트레이스(Sentry)
+* 사용자 피드백 버튼(“답변 품질”)
+
+---
+
+## 13) 배포/운영
+
+* **Vercel** 환경변수 세팅 (`OPENAI_API_KEY`)
+* Preview → Production 브랜치 전략
+* 장애 대응 Runbook: 키 만료/429/5xx/타임아웃
+
+---
+
+## 14) 로드맵(우선순위)
+
+1. **MVP**
+
+   * 랜딩 + 기능1(스트리밍) + 기본 로깅
+2. 기능2(역할 프리셋/커스텀 역할)
+3. 기능3(블로그: 초안 → 미리보기 → 메타)
+4. 기능4(JSON-UI: Structured Outputs + 렌더러)
+5. 히스토리 저장/검색, 다국어, 팀 공유(옵션)
+
+---
+
+## 15) API 계약 요약
+
+| 기능      | Path           | Method | 입력                                      | 출력                             |
+| ------- | -------------- | ------ | --------------------------------------- | ------------------------------ |
+| 기본 챗    | `/api/chat`    | POST   | `{messages}`                            | `text/event-stream`            |
+| 역할 AI   | `/api/role`    | POST   | `{roleKey, userInput}`                  | `text/event-stream`            |
+| 블로그     | `/api/blog`    | POST   | `{topic,audience,tone,length,keywords}` | 스트리밍 Markdown + 메타             |
+| JSON-UI | `/api/json-ui` | POST   | `{prompt}`                              | `application/json` (Schema 일치) |
+
+---
+
+## 16) 보안 체크리스트
+
+* ✅ 서버에서만 OpenAI 키 사용
+* ✅ 요청 본문 크기 제한(예: 8MB)
+* ✅ 입력 Sanitization(XSS, 링크 자동화 금지)
+* ✅ 에러 응답에 내부 스택/키 노출 금지
+* ✅ 모델 거부(Refusal) 메시지 그대로 전달 + 대안 제시 ([OpenAI 플랫폼][4])
+
+---
+
+## 17) 참고(공식 문서)
+
+* **Responses API**(개요/레퍼런스/퀵스타트/스트리밍) ([OpenAI 플랫폼][4])
+* **Structured Outputs & JSON Mode** (스키마 강제/한계) ([OpenAI 플랫폼][5], [OpenAI][6])
+* **공식 JS/TS SDK** (`openai` 패키지) ([GitHub][7])
+
+---
+
+## 18) “개발 시작용” 체크리스트
+
+* [ ] Next.js App 라우터 초기화, Tailwind 설치
+* [ ] `openai` SDK 설치 및 `lib/openai.ts` 구성
+* [ ] `/api/chat` 스트리밍 MVP 완성
+* [ ] 랜딩 카드 4개 및 라우팅
+* [ ] 역할 프리셋/프롬프트 템플릿 테이블 작성
+* [ ] 블로그 초안 프롬프트 템플릿/미리보기
+* [ ] JSON Schema(기능4) + 렌더러 1차 구현
+* [ ] 레이트리밋 & 기본 로깅
+* [ ] E2E 테스트 1개 시나리오 통과
+
+---
+
+필요하시면 **실제 코드 스캐폴드**(레포 구조/기본 컴포넌트/Route Handlers/렌더러 뼈대)까지 바로 드릴게요.
+
+[1]: https://platform.openai.com/docs/api-reference?utm_source=chatgpt.com "OpenAI – API Reference & Documentation"
+[2]: https://platform.openai.com/docs/guides/streaming-responses?utm_source=chatgpt.com "streaming responses"
+[3]: https://github.com/openai/openai-node/blob/master/helpers.md?utm_source=chatgpt.com "openai-node/helpers.md at master"
+[4]: https://platform.openai.com/docs/api-reference/responses?utm_source=chatgpt.com "Responses API reference"
+[5]: https://platform.openai.com/docs/guides/structured-outputs?utm_source=chatgpt.com "OpenAI Structured Outputs Guide"
+[6]: https://openai.com/index/introducing-structured-outputs-in-the-api/?utm_source=chatgpt.com "Introducing Structured Outputs in the API"
+[7]: https://github.com/openai/openai-node?utm_source=chatgpt.com "Official JavaScript / TypeScript library for the OpenAI API"
